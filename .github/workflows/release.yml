@@ -57,8 +57,17 @@ jobs:
         with:
           tag_name: ${{ steps.ver.outputs.tag }}
           name: GigHub加速 v${{ steps.ver.outputs.version }}
+          body: |
+            ## GigHub加速 v${{ steps.ver.outputs.version }}
+
+            GitHub 文件下载加速的安卓客户端（原生 Compose，移动端界面）。
+
+            - 下载资产：`GigHub-v${{ steps.ver.outputs.version }}.apk`（Release 页面显示为 **GigHub加速-v${{ steps.ver.outputs.version }}**）
+            - 系统要求：Android 7.0+（minSdk 24）
+            - 功能：加速链接生成、节点测速、Releases 浏览、系统下载、Git Clone 命令、分享导入
+
+            > GitHub Releases 会剥离资产文件名中的中文，所以实际文件名是 `GigHub-v${{ steps.ver.outputs.version }}.apk`，中文名通过资产 label 显示。
           files: out/GigHub-v${{ steps.ver.outputs.version }}.apk
-          generate_release_notes: true
           make_latest: true
           overwrite_files: true
 

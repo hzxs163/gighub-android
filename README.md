@@ -14,7 +14,9 @@
 
 ## 下载
 
-到 [Releases](https://github.com/hzxs163/gighub-android/releases) 下载 `GigHub加速-v*.apk`，安装即可（Android 7.0+）。
+到 [Releases](https://github.com/hzxs163/gighub-android/releases) 下载 APK，安装即可（Android 7.0+）。
+
+> GitHub Releases 会剥掉资产文件名中的非 ASCII 字符，因此 APK 的实际文件名是 `GigHub-v0.1.apk`，Release 页面通过 label 显示为 **GigHub加速-v0.1**。下载后的文件也可自行改名。
 
 ## 构建
 
@@ -26,7 +28,7 @@ Release APK 输出在 `app/build/outputs/apk/release/app-release.apk`。
 
 仓库里带了自签名 keystore（`keystore/gighub.jks`，密码见 `keystore.properties`），方便 GitHub Actions 直接产出可安装包，也保证后续版本能覆盖安装。请不要用这个密钥签任何其他应用。
 
-推送到 `main` 或打 `v*` tag 会触发 Actions：构建、按 `GigHub加速-v<版本>.apk` 命名并发布到 Releases。
+推送到 `main` 或打 `v*` tag 会触发 Actions：构建、发布到 Releases，并把资产 label 设为中文名。发新版本时改 `gradle.properties` 里的 `appVersion`（例如 `0.2`）。
 
 ## 说明
 
