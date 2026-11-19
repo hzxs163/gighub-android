@@ -4,6 +4,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -43,6 +44,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -56,12 +58,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -186,7 +190,11 @@ fun AccelerateScreen(vm: AppViewModel) {
                 shape = RoundedCornerShape(14.dp),
                 placeholder = {
                     Text(
-                        "https://github.com/owner/repo/releases/download/...",
+                        if (vm.releasesMode) {
+                            "owner/repo 或 https://github.com/owner/repo"
+                        } else {
+                            "https://github.com/owner/repo/releases/download/..."
+                        },
                         style = MaterialTheme.typography.bodySmall,
                     )
                 },
@@ -257,26 +265,77 @@ fun AccelerateScreen(vm: AppViewModel) {
                 }
             }
 
-            Button(
-                onClick = {
-                    focus.clearFocus()
-                    vm.generate()
-                },
-                enabled = vm.input.isNotBlank(),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp),
-                shape = RoundedCornerShape(14.dp),
-            ) {
-                Text(
-                    if (vm.result == null) "生成加速链接" else "重新生成",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.SemiBold,
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        "获取 Releases 列表",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium,
+                    )
+                    Text(
+                        if (vm.releasesMode) "输入仓库后点附件名，直接走节点下载" else "打开后改为列出仓库的全部 Release",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Switch(
+                    checked = vm.releasesMode,
+                    onCheckedChange = vm::setReleasesMode,
                 )
+            }
+
+            if (vm.releasesMode) {
+                Button(
+                    onClick = {
+                        focus.clearFocus()
+                        vm.loadReleasesFromInput()
+                    },
+                    enabled = vm.input.isNotBlank() && !vm.releasesLoading,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(52.dp),
+                    shape = RoundedCornerShape(14.dp),
+                ) {
+                    if (vm.releasesLoading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            strokeWidth = 2.dp,
+                            color = MaterialTheme.colorScheme.onPrimary,
+                        )
+                        Spacer(Modifier.width(8.dp))
+                    }
+                    Text(
+                        if (vm.releasesLoading) "获取中…" else "获取 Releases 列表",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
+            } else {
+                Button(
+                    onClick = {
+                        focus.clearFocus()
+                        vm.generate()
+                    },
+                    enabled = vm.input.isNotBlank(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(52.dp),
+                    shape = RoundedCornerShape(14.dp),
+                ) {
+                    Text(
+                        if (vm.result == null) "生成加速链接" else "重新生成",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
             }
         }
 
-        vm.result?.let { ResultCard(vm, it) }
+        if (vm.releasesMode) {
+            ReleasesPanel(vm)
+        } else {
+            vm.result?.let { ResultCard(vm, it) }
+        }
 
         Surface(
             color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
@@ -470,64 +529,86 @@ fun ReleasesScreen(vm: AppViewModel) {
             }
         }
 
-        when {
-            vm.releasesLoading -> Surface(
-                shape = RoundedCornerShape(18.dp),
-                color = MaterialTheme.colorScheme.surface,
-                modifier = Modifier.fillMaxWidth(),
+        ReleasesPanel(vm)
+    }
+}
+
+@Composable
+private fun ReleasesPanel(vm: AppViewModel) {
+    when {
+        vm.releasesLoading -> Surface(
+            shape = RoundedCornerShape(18.dp),
+            color = MaterialTheme.colorScheme.surface,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Row(
+                modifier = Modifier.padding(20.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center,
             ) {
-                Row(
-                    modifier = Modifier.padding(20.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center,
-                ) {
-                    CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-                    Spacer(Modifier.width(10.dp))
-                    Text("正在请求 GitHub API…", style = MaterialTheme.typography.bodyMedium)
-                }
+                CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                Spacer(Modifier.width(10.dp))
+                Text("正在请求 GitHub API…", style = MaterialTheme.typography.bodyMedium)
             }
+        }
 
-            vm.releasesError != null -> SectionSurface {
-                Row(verticalAlignment = Alignment.Top) {
-                    Icon(
-                        Icons.Filled.Info,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.size(18.dp),
-                    )
-                    Spacer(Modifier.width(8.dp))
-                    Text(
-                        vm.releasesError.orEmpty(),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.error,
-                    )
-                }
-                OutlinedButton(onClick = vm::loadReleases, modifier = Modifier.fillMaxWidth()) {
-                    Text("重试")
-                }
+        vm.releasesError != null -> SectionSurface {
+            Row(verticalAlignment = Alignment.Top) {
+                Icon(
+                    Icons.Filled.Info,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.size(18.dp),
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    vm.releasesError.orEmpty(),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.error,
+                )
             }
+            OutlinedButton(onClick = vm::loadReleases, modifier = Modifier.fillMaxWidth()) {
+                Text("重试")
+            }
+        }
 
-            vm.releases.isNotEmpty() -> {
+        vm.releases.isNotEmpty() -> {
+            Row(
+                modifier = Modifier.padding(horizontal = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
                 Text(
                     "${vm.releasesTitle} · ${vm.releases.size} 个 Release",
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = 4.dp),
+                    modifier = Modifier.weight(1f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
-                vm.releases.forEachIndexed { index, release ->
-                    ReleaseCard(vm, release, defaultExpanded = index == 0)
-                }
-            }
-
-            else -> SectionSurface {
-                Text("还没有加载数据", style = MaterialTheme.typography.titleSmall)
                 Text(
-                    "支持这些写法：\n· microsoft/vscode\n· https://github.com/microsoft/vscode\n· https://github.com/microsoft/vscode/releases",
-                    style = MaterialTheme.typography.bodySmall,
+                    "节点 ${vm.selectedNode?.value ?: "未选择"}",
+                    style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    lineHeight = 19.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
+            vm.releases.forEachIndexed { index, release ->
+                ReleaseCard(vm, release, defaultExpanded = index == 0)
+            }
+        }
+
+        else -> SectionSurface {
+            Text(
+                if (vm.releasesMode) "输入仓库，获取 Releases" else "还没有加载数据",
+                style = MaterialTheme.typography.titleSmall,
+            )
+            Text(
+                "支持这些写法：\n· microsoft/vscode\n· https://github.com/microsoft/vscode\n· https://github.com/microsoft/vscode/releases",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                lineHeight = 19.sp,
+            )
         }
     }
 }
@@ -570,13 +651,14 @@ private fun ReleaseCard(vm: AppViewModel, release: Release, defaultExpanded: Boo
                     )
                 }
                 Text(
-                    "发布 ${release.publishedAt} · ${release.assets.size + if (release.zipUrl != null) 1 else 0} 个文件",
+                    "发布 ${release.publishedAt}",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
+            val fileCount = release.assets.size + if (release.zipUrl != null) 1 else 0
             Text(
-                if (expanded) "收起" else "展开",
+                if (expanded) "收起" else "${fileCount} 个文件",
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.padding(start = 10.dp, top = 2.dp),
@@ -602,11 +684,21 @@ private fun ReleaseCard(vm: AppViewModel, release: Release, defaultExpanded: Boo
 
 @Composable
 private fun AssetRow(vm: AppViewModel, asset: Asset) {
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+    val download = { vm.downloadAccel(asset.url, asset.name) }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(10.dp))
+            .clickable { download() }
+            .padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
         Column(Modifier.weight(1f)) {
             Text(
                 asset.name,
                 style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.primary,
+                textDecoration = TextDecoration.Underline,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -614,7 +706,7 @@ private fun AssetRow(vm: AppViewModel, asset: Asset) {
                 if (asset.size > 0) append(Proxy.formatSize(asset.size))
                 if (asset.count > 0) {
                     if (isNotEmpty()) append(" · ")
-                    append("下载 ${asset.count}")
+                    append("${asset.count} 次下载")
                 }
                 if (isEmpty()) append(if (asset.url.contains("/zipball/")) "源码包" else "附件")
             }
@@ -624,9 +716,20 @@ private fun AssetRow(vm: AppViewModel, asset: Asset) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        TextButton(onClick = { vm.copyAccel(asset.url) }) { Text("复制") }
-        TextButton(onClick = { vm.downloadAccel(asset.url, asset.name) }) { Text("下载") }
+        TextButton(
+            onClick = { vm.copyAccel(asset.url) },
+            contentPadding = PaddingValues(horizontal = 8.dp),
+        ) { Text("复制") }
+        IconButton(onClick = download) {
+            Icon(
+                painterResource(R.drawable.ic_download),
+                contentDescription = "下载 ${asset.name}",
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(20.dp),
+            )
+        }
     }
+    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
 }
 
 @Composable

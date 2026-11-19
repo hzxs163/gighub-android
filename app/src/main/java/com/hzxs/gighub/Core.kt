@@ -163,6 +163,10 @@ class Prefs(context: Context) {
         get() = sp.getLong("last_sync", 0L)
         set(value) = sp.edit().putLong("last_sync", value).apply()
 
+    var releasesMode: Boolean
+        get() = sp.getBoolean("releases_mode", false)
+        set(value) = sp.edit().putBoolean("releases_mode", value).apply()
+
     val history: List<String>
         get() = sp.getString("history", "").orEmpty().lines().filter { it.isNotBlank() }
 

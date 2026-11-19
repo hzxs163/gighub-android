@@ -140,6 +140,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     var repoInput by mutableStateOf("")
     var releases by mutableStateOf<List<Release>>(emptyList())
         private set
+    var releasesMode by mutableStateOf(prefs.releasesMode)
+        private set
     var releasesLoading by mutableStateOf(false)
         private set
     var releasesError by mutableStateOf<String?>(null)
@@ -413,12 +415,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }
         releasesLoading = true
         releasesError = null
+        releasesTitle = "${repo.first}/${repo.second}"
         viewModelScope.launch {
             try {
-                val list = github.releases(repo.first, repo.second, prefs.ghToken)
-                releases = list
-                releasesTitle = "${repo.first}/${repo.second}"
-                if (list.isEmpty()) releasesError = "该仓库还没有发布 Release"
+                releases = github.releases(repo.first, repo.second, prefs.ghToken)
+                if (releases.isEmpty()) releasesError = "该仓库还没有发布 Release"
             } catch (e: ApiException) {
                 releases = emptyList()
                 releasesError = e.message
@@ -429,6 +430,32 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 releasesLoading = false
             }
         }
+    }
+
+    fun setReleasesMode(enabled: Boolean) {
+        releasesMode = enabled
+        prefs.releasesMode = enabled
+        if (enabled) {
+            result = null
+            val repo = github.parseRepo(input)
+            if (repo != null) {
+                repoInput = input
+                val title = "${repo.first}/${repo.second}"
+                if (releasesTitle != title || releases.isEmpty()) loadReleases()
+            } else if (input.isNotBlank()) {
+                toast("Releases 模式：请输入仓库地址或 owner/repo")
+            }
+        }
+    }
+
+    fun loadReleasesFromInput() {
+        val repo = github.parseRepo(input)
+        if (repo == null) {
+            toast("请输入 owner/repo 或仓库链接")
+            return
+        }
+        repoInput = input
+        loadReleases()
     }
 
     fun useHistory(url: String) {
