@@ -42,11 +42,13 @@ jobs:
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
           echo "tag=v${VERSION}" >> "$GITHUB_OUTPUT"
 
+      # GitHub 会剥掉 Release 资产名里的非 ASCII 字符，所以上传用 ASCII 文件名，
+      # 中文名通过资产 label 显示在 Release 页面上。
       - name: Rename APK
         shell: bash
         run: |
           mkdir -p out
-          APK="out/GigHub加速-v${{ steps.ver.outputs.version }}.apk"
+          APK="out/GigHub-v${{ steps.ver.outputs.version }}.apk"
           cp app/build/outputs/apk/release/app-release.apk "$APK"
           ls -lh out
 
@@ -55,6 +57,31 @@ jobs:
         with:
           tag_name: ${{ steps.ver.outputs.tag }}
           name: GigHub加速 v${{ steps.ver.outputs.version }}
-          files: out/GigHub加速-v${{ steps.ver.outputs.version }}.apk
+          files: out/GigHub-v${{ steps.ver.outputs.version }}.apk
           generate_release_notes: true
           make_latest: true
+          overwrite_files: true
+
+      - name: Set Chinese display label
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.ver.outputs.version }}
+        run: |
+          TAG="v${VERSION}"
+          NAME="GigHub-v${VERSION}.apk"
+          REPO="${GITHUB_REPOSITORY}"
+          ASSET_ID=$(curl -sS -H "Authorization: Bearer ${GH_TOKEN}" \
+            "https://api.github.com/repos/${REPO}/releases/tags/${TAG}" \
+            | jq -r --arg n "${NAME}" '.assets[] | select(.name==$n) | .id' | head -1)
+          if [[ -z "${ASSET_ID}" ]]; then
+            echo "asset not found"; exit 1
+          fi
+          jq -n --arg l "GigHub加速-v${VERSION}" '{label:$l}' > /tmp/label.json
+          curl -sS -X PATCH -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            -H "Content-Type: application/json" \
+            --data @/tmp/label.json \
+            "https://api.github.com/repos/${REPO}/releases/assets/${ASSET_ID}" \
+            -o /tmp/label-result.json -w "label update: %{http_code}\n"
+          jq -r '"asset: \(.name) | label: \(.label)"' /tmp/label-result.json
