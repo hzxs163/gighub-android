@@ -740,13 +740,20 @@ fun SettingsScreen(vm: AppViewModel) {
         )
 
         SectionSurface {
-            Text("加速节点", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-            Text(
-                "来源：${vm.nodeSource} · 共 ${vm.nodes.size} 个" +
-                    if (vm.extraNodes.isNotEmpty()) "（含 ${vm.extraNodes.size} 个自定义）" else "",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("加速节点", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.width(10.dp))
+                Text(
+                    "来源：${vm.nodeSource} · 共 ${vm.nodes.size} 个" +
+                        if (vm.extraNodes.isNotEmpty()) "（含 ${vm.extraNodes.size} 个自定义）" else "",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f),
+                    textAlign = TextAlign.End,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
             if (vm.nodeLastSync > 0) {
                 Text(
                     "上次在线更新：${formatTime(vm.nodeLastSync)}",
@@ -820,9 +827,9 @@ fun SettingsScreen(vm: AppViewModel) {
                     }
                 }
             }
-        }
 
-        SectionSurface {
+            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f))
+
             Text("GitHub Token（可选）", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
             Text(
                 "只用于 Releases 列表接口，把每小时 60 次提升到 5000 次。Token 仅保存在本机，不会上传。",
