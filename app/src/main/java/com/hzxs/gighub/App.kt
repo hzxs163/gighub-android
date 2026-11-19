@@ -204,7 +204,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     fun openNodeSheet() {
         nodeSheetOpen = true
-        if (!testingAll && nodes.none { it.latencyMs != null }) testAllLatency()
+        if (!testingAll && nodes.none { it.latencyMs != null }) testAllLatency(autoSelect = true)
     }
 
     fun testAllLatency(autoSelect: Boolean = false) {
@@ -231,8 +231,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 if (autoSelect && lastManualSelectAt == manualAtStart) {
                     val best = nodes.firstOrNull { it.latencyMs != null }
                     if (best != null) {
+                        val changed = selectedNode?.value != best.value
                         selectedNode = best
                         prefs.selectedNode = best.value
+                        if (changed) toast("已自动选择最快节点：${best.value}（${best.latencyMs}ms）")
                     }
                 }
                 syncSelected()

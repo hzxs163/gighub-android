@@ -951,7 +951,10 @@ fun NodeSheet(vm: AppViewModel) {
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                TextButton(onClick = vm::testAllLatency, enabled = !vm.testingAll) {
+                TextButton(
+                    onClick = { vm.testAllLatency(autoSelect = true) },
+                    enabled = !vm.testingAll,
+                ) {
                     if (vm.testingAll) {
                         CircularProgressIndicator(
                             modifier = Modifier.size(14.dp),
@@ -959,7 +962,7 @@ fun NodeSheet(vm: AppViewModel) {
                         )
                         Spacer(Modifier.width(6.dp))
                     }
-                    Text(if (vm.testingAll) "测速中" else "全部测延迟")
+                    Text(if (vm.testingAll) "测速中" else "测延迟选最快")
                 }
             }
             Spacer(Modifier.height(8.dp))
