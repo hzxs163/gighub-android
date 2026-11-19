@@ -22,6 +22,7 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -42,6 +43,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.AndroidViewModel
@@ -193,6 +195,16 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun setTheme(mode: Int) {
         themeMode = mode
         prefs.theme = mode
+    }
+
+    fun cycleTheme() {
+        val next = when (themeMode) {
+            0 -> 2
+            1 -> 0
+            else -> 1
+        }
+        setTheme(next)
+        toast("外观：${themeLabel(next)}")
     }
 
     fun selectNode(node: Node) {
@@ -557,6 +569,18 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 }
 
+private fun themeLabel(mode: Int): String = when (mode) {
+    1 -> "深色"
+    2 -> "浅色"
+    else -> "跟随系统"
+}
+
+private fun themeIconRes(mode: Int): Int = when (mode) {
+    1 -> R.drawable.ic_theme_dark
+    2 -> R.drawable.ic_theme_light
+    else -> R.drawable.ic_theme_auto
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GigHubApp(vm: AppViewModel) {
@@ -584,6 +608,14 @@ fun GigHubApp(vm: AppViewModel) {
                         containerColor = MaterialTheme.colorScheme.background,
                         titleContentColor = MaterialTheme.colorScheme.onBackground,
                     ),
+                    actions = {
+                        IconButton(onClick = vm::cycleTheme) {
+                            Icon(
+                                painter = painterResource(themeIconRes(vm.themeMode)),
+                                contentDescription = "切换外观（当前：${themeLabel(vm.themeMode)}）",
+                            )
+                        }
+                    },
                 )
             },
             bottomBar = {

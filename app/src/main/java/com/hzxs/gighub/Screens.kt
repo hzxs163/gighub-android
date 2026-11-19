@@ -34,7 +34,6 @@ import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -739,19 +738,6 @@ fun SettingsScreen(vm: AppViewModel) {
             style = MaterialTheme.typography.headlineSmall,
             fontWeight = FontWeight.Bold,
         )
-
-        SectionSurface {
-            Text("外观", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf(0 to "跟随系统", 1 to "深色", 2 to "浅色").forEach { (mode, label) ->
-                    FilterChip(
-                        selected = vm.themeMode == mode,
-                        onClick = { vm.setTheme(mode) },
-                        label = { Text(label) },
-                    )
-                }
-            }
-        }
 
         SectionSurface {
             Text("加速节点", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
