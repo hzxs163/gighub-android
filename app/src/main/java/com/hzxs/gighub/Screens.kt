@@ -25,6 +25,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Refresh
@@ -170,11 +171,6 @@ fun AccelerateScreen(vm: AppViewModel) {
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         Text(
-            "把 GitHub 链接变快",
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Bold,
-        )
-        Text(
             "粘贴 Release、Raw、Archive 或仓库链接，选个节点，一键生成加速地址。",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -199,7 +195,17 @@ fun AccelerateScreen(vm: AppViewModel) {
                     )
                 },
                 trailingIcon = {
-                    TextButton(onClick = vm::pasteFromClipboard) { Text("粘贴") }
+                    if (vm.input.isBlank()) {
+                        TextButton(onClick = vm::pasteFromClipboard) { Text("粘贴") }
+                    } else {
+                        IconButton(onClick = vm::clearInput) {
+                            Icon(
+                                Icons.Filled.Clear,
+                                contentDescription = "清除",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
                 },
                 keyboardOptions = KeyboardOptions(
                     keyboardType = KeyboardType.Uri,
@@ -215,7 +221,10 @@ fun AccelerateScreen(vm: AppViewModel) {
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     items(vm.history) { url ->
                         AssistChip(
-                            onClick = { vm.useHistory(url) },
+                            onClick = {
+                                focus.clearFocus()
+                                vm.useHistory(url)
+                            },
                             label = {
                                 Text(
                                     url.substringAfter("://").take(38),
@@ -235,7 +244,10 @@ fun AccelerateScreen(vm: AppViewModel) {
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(14.dp))
-                    .clickable { vm.openNodeSheet() },
+                    .clickable {
+                        focus.clearFocus()
+                        vm.openNodeSheet()
+                    },
             ) {
                 Row(
                     modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
@@ -255,8 +267,16 @@ fun AccelerateScreen(vm: AppViewModel) {
                             overflow = TextOverflow.Ellipsis,
                         )
                     }
-                    LatencyChip(vm.selectedNode?.latencyMs)
-                    Spacer(Modifier.width(8.dp))
+                    if (vm.testingAll) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(14.dp),
+                            strokeWidth = 2.dp,
+                        )
+                        Spacer(Modifier.width(8.dp))
+                    } else {
+                        LatencyChip(vm.selectedNode?.latencyMs)
+                        Spacer(Modifier.width(8.dp))
+                    }
                     Text(
                         "更换",
                         style = MaterialTheme.typography.labelLarge,
@@ -280,7 +300,10 @@ fun AccelerateScreen(vm: AppViewModel) {
                 }
                 Switch(
                     checked = vm.releasesMode,
-                    onCheckedChange = vm::updateReleasesMode,
+                    onCheckedChange = {
+                        focus.clearFocus()
+                        vm.updateReleasesMode(it)
+                    },
                 )
             }
 
@@ -335,39 +358,6 @@ fun AccelerateScreen(vm: AppViewModel) {
             ReleasesPanel(vm)
         } else {
             vm.result?.let { ResultCard(vm, it) }
-        }
-
-        Surface(
-            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
-            shape = RoundedCornerShape(18.dp),
-        ) {
-            Column(
-                Modifier.padding(14.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        Icons.Filled.Info,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp),
-                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                    )
-                    Spacer(Modifier.width(6.dp))
-                    Text(
-                        "小贴士",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer,
-                    )
-                }
-                Text(
-                    "· 在节点列表里测一下延迟，挑最快的节点，速度差别很大。\n" +
-                        "· 浏览器里看到 GitHub 文件时，用「分享」把链接发到本应用即可。\n" +
-                        "· 文件本身仍来自 GitHub，本应用只负责拼加速地址。",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f),
-                    lineHeight = 19.sp,
-                )
-            }
         }
     }
 }
@@ -885,7 +875,27 @@ fun SettingsScreen(vm: AppViewModel) {
 
         SectionSurface {
             Text("关于", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-            Text("GigHub加速 v${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.bodyMedium)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("GigHub加速 v${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.bodyMedium)
+                    Text(
+                        when {
+                            vm.checkingUpdate -> "正在检查新版本…"
+                            vm.updateInfo != null -> "发现新版本 v${vm.updateInfo?.version}"
+                            else -> "从 GitHub Releases 检查更新"
+                        },
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (vm.updateInfo != null) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                    )
+                }
+                OutlinedButton(onClick = { vm.checkUpdate() }, enabled = !vm.checkingUpdate) {
+                    Text(if (vm.checkingUpdate) "检查中…" else "检查更新")
+                }
+            }
             Text(
                 "节点和数据来自 github.akams.cn 公益服务，仅供个人下载加速使用，请勿滥用。",
                 style = MaterialTheme.typography.bodySmall,

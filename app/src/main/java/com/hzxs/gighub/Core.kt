@@ -8,6 +8,9 @@ import android.net.Uri
 import android.os.Environment
 import android.os.SystemClock
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -56,6 +59,31 @@ data class AccelResult(
     val node: String,
     val cloneCommand: String? = null,
 )
+
+data class UpdateInfo(
+    val version: String,
+    val apkUrl: String,
+    val pageUrl: String,
+    val notes: String,
+    val size: Long,
+)
+
+const val UPDATE_MIRROR = "https://gh-proxy.org"
+
+fun isVersionNewer(latest: String, current: String): Boolean {
+    fun parts(version: String) = version.trim()
+        .removePrefix("v").removePrefix("V")
+        .split('.', '-', '+', '_')
+        .mapNotNull { it.toIntOrNull() }
+    val a = parts(latest)
+    val b = parts(current)
+    for (index in 0 until maxOf(a.size, b.size)) {
+        val x = a.getOrElse(index) { 0 }
+        val y = b.getOrElse(index) { 0 }
+        if (x != y) return x > y
+    }
+    return false
+}
 
 object Proxy {
     private val urlRegex = Regex("""https?://[^\s"'<>()（）]+""")
@@ -166,6 +194,10 @@ class Prefs(context: Context) {
     var releasesMode: Boolean
         get() = sp.getBoolean("releases_mode", false)
         set(value) = sp.edit().putBoolean("releases_mode", value).apply()
+
+    var dismissedUpdate: String
+        get() = sp.getString("dismissed_update", "").orEmpty()
+        set(value) = sp.edit().putString("dismissed_update", value).apply()
 
     val history: List<String>
         get() = sp.getString("history", "").orEmpty().lines().filter { it.isNotBlank() }
@@ -291,6 +323,42 @@ class NodeRepository(private val context: Context, private val prefs: Prefs) {
         }
     }
 
+    suspend fun pickFaster(candidates: List<String>): String? = withContext(Dispatchers.IO) {
+        val urls = candidates.filter { it.isNotBlank() }.distinct()
+        if (urls.isEmpty()) return@withContext null
+        val scores = coroutineScope {
+            urls.map { url -> async { url to probeMbps(url) } }.awaitAll()
+        }
+        scores.filter { it.second != null }.maxByOrNull { it.second!! }?.first
+    }
+
+    private fun probeMbps(url: String): Double? = try {
+        val request = Request.Builder()
+            .url(url)
+            .header("User-Agent", UA)
+            .header("Range", "bytes=0-262143")
+            .build()
+        val start = SystemClock.elapsedRealtime()
+        client.newCall(request).execute().use { response ->
+            if (!response.isSuccessful && response.code != 206) return null
+            val buffer = ByteArray(32 * 1024)
+            var total = 0L
+            response.body?.byteStream()?.use { input ->
+                while (total < 256L * 1024) {
+                    val read = input.read(buffer)
+                    if (read <= 0) break
+                    total += read
+                    if (SystemClock.elapsedRealtime() - start > 4000) break
+                }
+            }
+            val seconds = (SystemClock.elapsedRealtime() - start) / 1000.0
+            if (total < 32 * 1024 || seconds <= 0.0) null
+            else total * 8.0 / seconds / 1_000_000.0
+        }
+    } catch (t: Throwable) {
+        null
+    }
+
     suspend fun updateFromSite(): Int? = withContext(Dispatchers.IO) {
         try {
             val home = fetchText("https://github.akams.cn/") ?: return@withContext null
@@ -396,6 +464,56 @@ class GitHubApi {
                 parseReleases(body)
             }
         }
+
+    suspend fun latestRelease(token: String): UpdateInfo? = withContext(Dispatchers.IO) {
+        val endpoints = listOf(
+            "https://api.github.com/repos/hzxs163/gighub-android/releases/latest",
+            "$UPDATE_MIRROR/https://api.github.com/repos/hzxs163/gighub-android/releases/latest",
+        )
+        var lastError: Throwable? = null
+        for (endpoint in endpoints) {
+            try {
+                val builder = Request.Builder()
+                    .url(endpoint)
+                    .header("Accept", "application/vnd.github+json")
+                    .header("User-Agent", "GigHub-Android")
+                    .header("X-GitHub-Api-Version", "2022-11-28")
+                if (token.isNotBlank() && endpoint.startsWith("https://api.github.com")) {
+                    builder.header("Authorization", "Bearer ${token.trim()}")
+                }
+                client.newCall(builder.build()).execute().use { response ->
+                    if (response.code == 404) return@withContext null
+                    if (!response.isSuccessful) throw ApiException("检查更新失败：HTTP ${response.code}")
+                    val obj = JSONObject(response.body?.string().orEmpty())
+                    val tag = obj.optString("tag_name").removePrefix("v").removePrefix("V")
+                    val assets = obj.optJSONArray("assets")
+                    var apkUrl = ""
+                    var size = 0L
+                    if (assets != null) {
+                        for (i in 0 until assets.length()) {
+                            val asset = assets.optJSONObject(i) ?: continue
+                            if (asset.optString("name").endsWith(".apk", true)) {
+                                apkUrl = asset.optString("browser_download_url")
+                                size = asset.optLong("size", 0L)
+                                break
+                            }
+                        }
+                    }
+                    if (tag.isBlank() || apkUrl.isBlank()) return@withContext null
+                    return@withContext UpdateInfo(
+                        version = tag,
+                        apkUrl = apkUrl,
+                        pageUrl = obj.optString("html_url"),
+                        notes = obj.optString("body").take(600),
+                        size = size,
+                    )
+                }
+            } catch (t: Throwable) {
+                lastError = t
+            }
+        }
+        throw (lastError ?: ApiException("检查更新失败"))
+    }
 
     private fun parseReleases(body: String): List<Release> = try {
         val array = JSONArray(body)

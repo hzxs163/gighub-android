@@ -7,10 +7,8 @@ plugins {
 }
 
 val appVersion = providers.gradleProperty("appVersion").getOrElse("0.1")
-val versionParts = appVersion.split(".")
-val appVersionCode = (versionParts.getOrNull(0)?.toIntOrNull() ?: 0) * 10000 +
-    (versionParts.getOrNull(1)?.toIntOrNull() ?: 0) * 100 +
-    (versionParts.getOrNull(2)?.toIntOrNull() ?: 0)
+val buildNumber = providers.gradleProperty("buildNumber").orNull?.toIntOrNull() ?: 0
+val displayVersion = providers.gradleProperty("versionName").orNull?.takeIf { it.isNotBlank() } ?: appVersion
 
 val keystoreProps = Properties().apply {
     val file = rootProject.file("keystore.properties")
@@ -25,8 +23,8 @@ android {
         applicationId = "com.hzxs.gighub"
         minSdk = 24
         targetSdk = 35
-        versionCode = appVersionCode
-        versionName = appVersion
+        versionCode = 10000 + buildNumber
+        versionName = displayVersion
     }
 
     signingConfigs {

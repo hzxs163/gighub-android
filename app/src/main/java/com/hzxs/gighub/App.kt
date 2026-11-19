@@ -5,23 +5,29 @@ import android.app.Application
 import android.content.ClipboardManager
 import android.content.Intent
 import android.net.Uri
+import android.os.SystemClock
 import android.widget.Toast
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.darkColorScheme
@@ -33,6 +39,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.core.view.WindowCompat
@@ -151,21 +159,34 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     var hasToken by mutableStateOf(prefs.ghToken.isNotBlank())
         private set
 
+    var updateInfo by mutableStateOf<UpdateInfo?>(null)
+        private set
+    var checkingUpdate by mutableStateOf(false)
+        private set
+    var preparingUpdate by mutableStateOf(false)
+        private set
+
+    private var lastManualSelectAt = 0L
+
     init {
-        refreshNodes()
+        refreshNodes(autoSelectFastest = true)
+        checkUpdate(silent = true)
     }
 
     fun toast(message: String) {
         Toast.makeText(getApplication(), message, Toast.LENGTH_SHORT).show()
     }
 
-    fun refreshNodes() {
+    fun refreshNodes(autoSelectFastest: Boolean = false) {
         viewModelScope.launch {
             val list = nodeRepo.loadNodes()
             nodes = list
             selectedNode = list.firstOrNull { it.value == prefs.selectedNode } ?: list.firstOrNull()
             nodeSource = if (prefs.nodeOverride != null) "在线更新" else "内置"
             extraNodes = prefs.extraNodes
+            if (autoSelectFastest && list.isNotEmpty()) {
+                testAllLatency(autoSelect = true)
+            }
         }
     }
 
@@ -175,6 +196,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun selectNode(node: Node) {
+        lastManualSelectAt = SystemClock.elapsedRealtime()
         selectedNode = node
         prefs.selectedNode = node.value
         nodeSheetOpen = false
@@ -185,10 +207,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         if (!testingAll && nodes.none { it.latencyMs != null }) testAllLatency()
     }
 
-    fun testAllLatency() {
+    fun testAllLatency(autoSelect: Boolean = false) {
         if (testingAll) return
         val snapshot = nodes
         if (snapshot.isEmpty()) return
+        val manualAtStart = lastManualSelectAt
         testingAll = true
         viewModelScope.launch {
             try {
@@ -205,6 +228,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                     if (ms != null) prefs.saveLatency(node.value, ms)
                     node.copy(latencyMs = ms ?: node.latencyMs)
                 }.sortedWith(compareBy<Node> { it.latencyMs ?: Long.MAX_VALUE })
+                if (autoSelect && lastManualSelectAt == manualAtStart) {
+                    val best = nodes.firstOrNull { it.latencyMs != null }
+                    if (best != null) {
+                        selectedNode = best
+                        prefs.selectedNode = best.value
+                    }
+                }
                 syncSelected()
             } finally {
                 testingAll = false
@@ -308,6 +338,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun clearResult() {
+        result = null
+    }
+
+    fun clearInput() {
+        input = ""
         result = null
     }
 
@@ -468,11 +503,62 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         releasesError = null
         releasesTitle = ""
     }
+
+    fun checkUpdate(silent: Boolean = false) {
+        if (checkingUpdate) return
+        checkingUpdate = true
+        viewModelScope.launch {
+            try {
+                val info = github.latestRelease(prefs.ghToken)
+                if (info != null && isVersionNewer(info.version, BuildConfig.VERSION_NAME)) {
+                    if (!silent || prefs.dismissedUpdate != info.version) updateInfo = info
+                    if (!silent) toast("发现新版本 v${info.version}")
+                } else if (!silent) {
+                    toast("已是最新版本 v${BuildConfig.VERSION_NAME}")
+                }
+            } catch (e: ApiException) {
+                if (!silent) toast(e.message ?: "检查更新失败")
+            } catch (t: Throwable) {
+                if (!silent) toast("检查更新失败，请检查网络")
+            } finally {
+                checkingUpdate = false
+            }
+        }
+    }
+
+    fun dismissUpdate() {
+        updateInfo?.let { prefs.dismissedUpdate = it.version }
+        updateInfo = null
+    }
+
+    fun downloadUpdate() {
+        val info = updateInfo ?: return
+        if (preparingUpdate) return
+        preparingUpdate = true
+        viewModelScope.launch {
+            try {
+                val candidates = mutableListOf("$UPDATE_MIRROR/${info.apkUrl}")
+                selectedNode?.let { candidates.add(Proxy.build(it.value, info.apkUrl)) }
+                val chosen = nodeRepo.pickFaster(candidates) ?: info.apkUrl
+                val host = chosen.substringAfter("://").substringBefore('/')
+                downloadAs(chosen, Proxy.fileName(info.apkUrl))
+                toast("更新经 $host 下载，完成后在通知栏点击安装")
+                updateInfo = null
+            } finally {
+                preparingUpdate = false
+            }
+        }
+    }
+
+    fun openUpdatePage() {
+        updateInfo?.pageUrl?.takeIf { it.isNotBlank() }?.let(::openInBrowser)
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GigHubApp(vm: AppViewModel) {
+    val focus = LocalFocusManager.current
     GigHubTheme(vm.themeMode) {
         Scaffold(
             containerColor = MaterialTheme.colorScheme.background,
@@ -502,26 +588,43 @@ fun GigHubApp(vm: AppViewModel) {
                 NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
                     NavigationBarItem(
                         selected = vm.tab == 0,
-                        onClick = { vm.tab = 0 },
+                        onClick = {
+                            focus.clearFocus()
+                            vm.tab = 0
+                        },
                         icon = { Icon(Icons.Filled.Send, contentDescription = null) },
                         label = { Text("加速") },
                     )
                     NavigationBarItem(
                         selected = vm.tab == 1,
-                        onClick = { vm.tab = 1 },
+                        onClick = {
+                            focus.clearFocus()
+                            vm.tab = 1
+                        },
                         icon = { Icon(Icons.Filled.List, contentDescription = null) },
                         label = { Text("Releases") },
                     )
                     NavigationBarItem(
                         selected = vm.tab == 2,
-                        onClick = { vm.tab = 2 },
+                        onClick = {
+                            focus.clearFocus()
+                            vm.tab = 2
+                        },
                         icon = { Icon(Icons.Filled.Settings, contentDescription = null) },
                         label = { Text("设置") },
                     )
                 }
             },
         ) { padding ->
-            Box(Modifier.fillMaxSize().padding(padding)) {
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .imePadding()
+                    .pointerInput(Unit) {
+                        detectTapGestures(onTap = { focus.clearFocus() })
+                    }
+            ) {
                 when (vm.tab) {
                     0 -> AccelerateScreen(vm)
                     1 -> ReleasesScreen(vm)
@@ -530,5 +633,36 @@ fun GigHubApp(vm: AppViewModel) {
             }
         }
         if (vm.nodeSheetOpen) NodeSheet(vm)
+        vm.updateInfo?.let { info ->
+            AlertDialog(
+                onDismissRequest = vm::dismissUpdate,
+                title = { Text("发现新版本 v${info.version}") },
+                text = {
+                    Text(
+                        buildString {
+                            append("当前版本 v${BuildConfig.VERSION_NAME}")
+                            if (info.size > 0) append(" · ${Proxy.formatSize(info.size)}")
+                            if (info.notes.isNotBlank()) {
+                                append("\n\n")
+                                append(info.notes.take(260))
+                            }
+                            append("\n\n更新包会在 gh-proxy.org 与当前节点之间自动选快的下载，完成后在通知栏点击安装。")
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                },
+                confirmButton = {
+                    TextButton(onClick = vm::downloadUpdate, enabled = !vm.preparingUpdate) {
+                        Text(if (vm.preparingUpdate) "选择线路…" else "下载更新")
+                    }
+                },
+                dismissButton = {
+                    Row {
+                        TextButton(onClick = vm::openUpdatePage) { Text("浏览器") }
+                        TextButton(onClick = vm::dismissUpdate) { Text("稍后") }
+                    }
+                },
+            )
+        }
     }
 }
