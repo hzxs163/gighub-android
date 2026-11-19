@@ -1,0 +1,60 @@
+name: Build & Release
+
+on:
+  push:
+    branches: [ main, master ]
+    tags: [ 'v*' ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Build release APK
+        run: gradle assembleRelease --no-daemon --stacktrace
+
+      - name: Resolve version
+        id: ver
+        shell: bash
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          else
+            VERSION=$(grep -E '^appVersion=' gradle.properties | cut -d= -f2 | tr -d '\r')
+          fi
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "tag=v${VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Rename APK
+        shell: bash
+        run: |
+          mkdir -p out
+          APK="out/GigHub加速-v${{ steps.ver.outputs.version }}.apk"
+          cp app/build/outputs/apk/release/app-release.apk "$APK"
+          ls -lh out
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.ver.outputs.tag }}
+          name: GigHub加速 v${{ steps.ver.outputs.version }}
+          files: out/GigHub加速-v${{ steps.ver.outputs.version }}.apk
+          generate_release_notes: true
+          make_latest: true
