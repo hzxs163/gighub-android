@@ -1,4 +1,4 @@
-# GigHub加速
+# GitHub加速
 
 [github.akams.cn](https://github.akams.cn/) 的安卓客户端。原站是电脑端布局，手机上输入框和节点列表很难用；这个 App 用原生 Kotlin + Jetpack Compose 重做了移动端界面，文件仍然走原站的公益加速节点。
 
@@ -6,7 +6,7 @@
 
 - **一键生成加速链接**：粘贴 GitHub Release / Raw / Archive / Gist 链接，选节点，生成 `https://节点/https://github.com/...` 地址。
 - **节点选择与测速**：内置官网最新的 80+ 节点，支持延迟测试、单节点下载测速、搜索、排序。
-- **Releases 浏览**：输入 `owner/repo`（或仓库链接），列出 Release 与全部附件，直接复制加速链接或用系统下载器下载到 `Download/GigHub/`。
+- **Releases 浏览**：输入 `owner/repo`（或仓库链接），列出 Release 与全部附件，直接复制加速链接或用系统下载器下载到 `Download/GitHub/`。
 - **Git 克隆命令**：输入仓库地址时自动生成 `git clone` 加速命令。
 - **分享即用**：在浏览器里把 GitHub 链接「分享」到本应用，自动填入输入框。
 - **节点在线更新**：从官网抓取最新节点列表；失败时继续用内置列表，也可以手动添加节点。
@@ -18,7 +18,7 @@
 
 到 [Releases](https://github.com/hzxs163/gighub-android/releases) 下载 APK，安装即可（Android 7.0+）。
 
-> GitHub Releases 会剥掉资产文件名中的非 ASCII 字符，因此 APK 的实际文件名是 `GigHub-v0.1.apk`，Release 页面通过 label 显示为 **GigHub加速-v0.1**。下载后的文件也可自行改名。
+> GitHub Releases 会剥掉资产文件名中的非 ASCII 字符，因此 APK 的实际文件名是 `GitHub-v<版本>.apk`，Release 页面通过 label 显示为 **GitHub加速-v<版本>**。下载后的文件也可自行改名。
 
 ## 构建
 

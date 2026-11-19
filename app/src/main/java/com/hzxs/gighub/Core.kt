@@ -446,7 +446,7 @@ class GitHubApi {
             val builder = Request.Builder()
                 .url(url)
                 .header("Accept", "application/vnd.github+json")
-                .header("User-Agent", "GigHub-Android")
+                .header("User-Agent", "GitHub-Android")
                 .header("X-GitHub-Api-Version", "2022-11-28")
             if (token.isNotBlank()) builder.header("Authorization", "Bearer ${token.trim()}")
             client.newCall(builder.build()).execute().use { response ->
@@ -476,7 +476,7 @@ class GitHubApi {
                 val builder = Request.Builder()
                     .url(endpoint)
                     .header("Accept", "application/vnd.github+json")
-                    .header("User-Agent", "GigHub-Android")
+                    .header("User-Agent", "GitHub-Android")
                     .header("X-GitHub-Api-Version", "2022-11-28")
                 if (token.isNotBlank() && endpoint.startsWith("https://api.github.com")) {
                     builder.header("Authorization", "Bearer ${token.trim()}")
@@ -559,10 +559,10 @@ object Downloader {
         val safeName = fileName.ifBlank { "github-download.bin" }
         val request = DownloadManager.Request(Uri.parse(url))
             .setTitle(title)
-            .setDescription("GigHub加速")
+            .setDescription("GitHub加速")
             .setMimeType(Proxy.mimeOf(safeName))
             .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-            .setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, "GigHub/$safeName")
+            .setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, "GitHub/$safeName")
             .setAllowedOverMetered(true)
             .setAllowedOverRoaming(true)
             .addRequestHeader("User-Agent", UA)
@@ -575,5 +575,5 @@ object Downloader {
 
 fun copyToClipboard(context: Context, text: String) {
     val manager = context.getSystemService(ClipboardManager::class.java)
-    manager.setPrimaryClip(ClipData.newPlainText("GigHub", text))
+    manager.setPrimaryClip(ClipData.newPlainText("GitHub", text))
 }

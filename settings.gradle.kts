@@ -14,5 +14,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "GigHub-Accel"
+rootProject.name = "GitHub-Accel"
 include(":app")

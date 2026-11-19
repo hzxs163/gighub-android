@@ -567,7 +567,7 @@ fun GigHubApp(vm: AppViewModel) {
                     title = {
                         Column {
                             Text(
-                                "GigHub 加速",
+                                "GitHub 加速",
                                 style = MaterialTheme.typography.titleLarge,
                                 fontWeight = FontWeight.Bold,
                             )

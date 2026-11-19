@@ -877,7 +877,7 @@ fun SettingsScreen(vm: AppViewModel) {
             Text("关于", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text("GigHub加速 v${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.bodyMedium)
+                    Text("GitHub加速 v${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.bodyMedium)
                     Text(
                         when {
                             vm.checkingUpdate -> "正在检查新版本…"

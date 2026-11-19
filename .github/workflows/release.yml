@@ -54,7 +54,7 @@ jobs:
         shell: bash
         run: |
           mkdir -p out
-          APK="out/GigHub-v${{ steps.ver.outputs.version }}.apk"
+          APK="out/GitHub-v${{ steps.ver.outputs.version }}.apk"
           cp app/build/outputs/apk/release/app-release.apk "$APK"
           ls -lh out
 
@@ -62,19 +62,19 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.ver.outputs.tag }}
-          name: GigHub加速 v${{ steps.ver.outputs.version }}
+          name: GitHub加速 v${{ steps.ver.outputs.version }}
           body: |
-            ## GigHub加速 v${{ steps.ver.outputs.version }}
+            ## GitHub加速 v${{ steps.ver.outputs.version }}
 
             GitHub 文件下载加速的安卓客户端（原生 Compose，移动端界面）。
 
-            - 下载资产：`GigHub-v${{ steps.ver.outputs.version }}.apk`（Release 页面显示为 **GigHub加速-v${{ steps.ver.outputs.version }}**）
+            - 下载资产：`GitHub-v${{ steps.ver.outputs.version }}.apk`（Release 页面显示为 **GitHub加速-v${{ steps.ver.outputs.version }}**）
             - 系统要求：Android 7.0+（minSdk 24）
             - 应用内「设置 → 检查更新」可自动检测新版本；更新包会在 gh-proxy.org 与当前节点之间选快的下载
             - 版本号由 CI 自动递增，无需手动改
 
-            > GitHub Releases 会剥离资产文件名中的中文，所以实际文件名是 `GigHub-v${{ steps.ver.outputs.version }}.apk`，中文名通过资产 label 显示。
-          files: out/GigHub-v${{ steps.ver.outputs.version }}.apk
+            > GitHub Releases 会剥离资产文件名中的中文，所以实际文件名是 `GitHub-v${{ steps.ver.outputs.version }}.apk`，中文名通过资产 label 显示。
+          files: out/GitHub-v${{ steps.ver.outputs.version }}.apk
           make_latest: true
           overwrite_files: true
 
@@ -85,7 +85,7 @@ jobs:
           VERSION: ${{ steps.ver.outputs.version }}
         run: |
           TAG="v${VERSION}"
-          NAME="GigHub-v${VERSION}.apk"
+          NAME="GitHub-v${VERSION}.apk"
           REPO="${GITHUB_REPOSITORY}"
           ASSET_ID=$(curl -sS -H "Authorization: Bearer ${GH_TOKEN}" \
             "https://api.github.com/repos/${REPO}/releases/tags/${TAG}" \
@@ -93,7 +93,7 @@ jobs:
           if [[ -z "${ASSET_ID}" ]]; then
             echo "asset not found"; exit 1
           fi
-          jq -n --arg l "GigHub加速-v${VERSION}" '{label:$l}' > /tmp/label.json
+          jq -n --arg l "GitHub加速-v${VERSION}" '{label:$l}' > /tmp/label.json
           curl -sS -X PATCH -H "Authorization: Bearer ${GH_TOKEN}" \
             -H "Accept: application/vnd.github+json" \
             -H "Content-Type: application/json" \
