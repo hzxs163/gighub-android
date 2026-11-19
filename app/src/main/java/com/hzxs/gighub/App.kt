@@ -432,7 +432,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun setReleasesMode(enabled: Boolean) {
+    fun updateReleasesMode(enabled: Boolean) {
         releasesMode = enabled
         prefs.releasesMode = enabled
         if (enabled) {

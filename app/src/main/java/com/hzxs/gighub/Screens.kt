@@ -280,7 +280,7 @@ fun AccelerateScreen(vm: AppViewModel) {
                 }
                 Switch(
                     checked = vm.releasesMode,
-                    onCheckedChange = vm::setReleasesMode,
+                    onCheckedChange = vm::updateReleasesMode,
                 )
             }
 
