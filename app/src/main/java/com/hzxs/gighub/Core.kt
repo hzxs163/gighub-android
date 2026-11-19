@@ -75,6 +75,8 @@ object Proxy {
         var url = if (line.startsWith("http://", true) || line.startsWith("https://", true)) line else "https://$line"
         url = url.replace(Regex("kkgithub\\.com", RegexOption.IGNORE_CASE), "github.com")
         url = url.replace(" ", "")
+        val host = url.substringAfter("://", "").substringBefore('/').substringBefore('?')
+        if (host.length < 3 || !host.contains('.')) return null
         return url.takeIf { it.length > 8 }
     }
 

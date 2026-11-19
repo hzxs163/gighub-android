@@ -587,7 +587,7 @@ private fun ReleaseCard(vm: AppViewModel, release: Release, defaultExpanded: Boo
             HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
             release.assets.forEach { asset -> AssetRow(vm, asset) }
             release.zipUrl?.let { zipUrl ->
-                AssetRow(vm, Asset("源码 (zip)", 0L, zipUrl, 0))
+                AssetRow(vm, Asset("源码-${release.tag}.zip", 0L, zipUrl, 0))
             }
             if (release.assets.isEmpty() && release.zipUrl == null) {
                 Text(
@@ -625,7 +625,7 @@ private fun AssetRow(vm: AppViewModel, asset: Asset) {
             )
         }
         TextButton(onClick = { vm.copyAccel(asset.url) }) { Text("复制") }
-        TextButton(onClick = { vm.downloadAccel(asset.url) }) { Text("下载") }
+        TextButton(onClick = { vm.downloadAccel(asset.url, asset.name) }) { Text("下载") }
     }
 }
 

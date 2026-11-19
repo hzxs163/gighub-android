@@ -372,9 +372,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun download(url: String) {
-        val name = Proxy.fileName(url)
-        if (Downloader.enqueue(getApplication(), url, name, name)) {
-            toast("已加入下载：$name")
+        downloadAs(url, Proxy.fileName(url))
+    }
+
+    fun downloadAs(url: String, name: String) {
+        val safe = name.replace(Regex("""[\\/:*?"<>|\s]+"""), "_").take(120).ifBlank { "github-download.bin" }
+        if (Downloader.enqueue(getApplication(), url, safe, safe)) {
+            toast("已加入下载：$safe")
         } else {
             toast("加入下载失败，请改用浏览器打开")
         }
@@ -392,8 +396,12 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         accelUrl(original)?.let { copy(it) }
     }
 
-    fun downloadAccel(original: String) {
-        accelUrl(original)?.let { download(it) }
+    fun downloadAccel(original: String, name: String? = null) {
+        val node = selectedNode ?: run {
+            toast("请先选择一个节点")
+            return
+        }
+        downloadAs(Proxy.build(node.value, original), name ?: Proxy.fileName(original))
     }
 
     fun loadReleases() {
